@@ -478,15 +478,16 @@ export interface CrossProjectIssueHit extends IssueSearchHit {
   projectRef: string;
   projectKey: string;
   projectName: string;
+  teamName: string;
 }
 
-// Text search across the given projects, archived issues included. "KEY-42" matches
-// issue 42 of every listed project whose key is KEY, since a key is unique only within
-// its team.
+// Text search across the given projects, archived issues included, at most
+// perProjectLimit hits from each project. "KEY-42" matches issue 42 of every listed
+// project whose key is KEY, since a key is unique only within its team.
 export async function searchIssuesInProjects(
   projectIds: number[],
   query: string,
-  limit: number,
+  { limit, perProjectLimit }: { limit: number; perProjectLimit: number },
 ): Promise<CrossProjectIssueHit[]> {
   const raw = query.trim();
   if (!projectIds.length || !raw) return [];
@@ -499,6 +500,20 @@ export async function searchIssuesInProjects(
           : sql`lower(${projectTable.key}) = ${number.key.toLowerCase()}`,
       )
     : undefined;
+  const order = hitOrder(numberMatch);
+  // Only the id and the rank: the window sees every match, the hit columns are read
+  // for the rows that pass the cap.
+  const ranked = db
+    .select({
+      id: issue.id,
+      rank: sql<number>`row_number() over (partition by ${issue.projectId} order by ${sql.join(order, sql`, `)})`.as(
+        'rank',
+      ),
+    })
+    .from(issue)
+    .innerJoin(projectTable, eq(projectTable.id, issue.projectId))
+    .where(and(inArray(issue.projectId, projectIds), textMatch(raw, numberMatch)))
+    .as('ranked');
   const rows = await db
     .select({
       ...hitColumns,
@@ -506,19 +521,22 @@ export async function searchIssuesInProjects(
       projectRef: projectRefSql,
       projectKey: projectTable.key,
       projectName: projectTable.name,
+      teamName: team.name,
     })
     .from(issue)
+    .innerJoin(ranked, eq(ranked.id, issue.id))
     .innerJoin(projectTable, eq(projectTable.id, issue.projectId))
     .innerJoin(team, eq(team.id, projectTable.teamId))
-    .where(and(inArray(issue.projectId, projectIds), textMatch(raw, numberMatch)))
-    .orderBy(...hitOrder(numberMatch))
+    .where(lte(ranked.rank, perProjectLimit))
+    .orderBy(...order)
     .limit(limit);
-  const hits = rows.map(({ projectId, projectRef, projectKey, projectName, ...r }) => ({
+  const hits = rows.map(({ projectId, projectRef, projectKey, projectName, teamName, ...r }) => ({
     ...toHit(r, projectKey),
     projectId,
     projectRef,
     projectKey,
     projectName,
+    teamName,
   }));
   await attachLabels(hits);
   return hits;

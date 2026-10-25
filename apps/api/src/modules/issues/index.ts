@@ -581,11 +581,11 @@ export const issueRoutes = new Elysia({ name: 'issues', detail: { tags: ['Issues
       const ids = await readableProjectIds(requireUser(user).id, [['work_items', 'read']], {
         mcpOnly: isMcpRequest(request.headers),
       });
-      const limit = Math.min(Math.max(query.limit ?? 20, 1), 50);
+      const clamp = (value: number) => Math.min(Math.max(value, 1), 50);
       return searchIssuesInProjects(
         ids.filter((id) => id !== query.excludeProjectId),
         query.q,
-        limit,
+        { limit: clamp(query.limit ?? 20), perProjectLimit: clamp(query.perProjectLimit ?? 5) },
       );
     },
     {
@@ -594,8 +594,9 @@ export const issueRoutes = new Elysia({ name: 'issues', detail: { tags: ['Issues
       detail: {
         summary: 'Search issues in all projects',
         description:
-          'Search the issues of every project you can read by text, archived issues included. ' +
-          'Each hit names its project (projectKey, projectRef); use search_issues for one project.',
+          'Search the issues of every project you can read by text, archived issues included, ' +
+          'at most perProjectLimit hits from each project. Each hit names its project ' +
+          '(projectKey, projectRef, projectName, teamName); use search_issues for one project.',
         ...mcpTool('search_issues_all_projects'),
       },
     },

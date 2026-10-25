@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { Hash } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import type { IssueSearchHit } from '@/lib/api/endpoints/issues';
@@ -6,9 +7,9 @@ import { CommandGroup, CommandItem, CommandSeparator } from '@/components/ui/com
 import ArchivedBadge from '@/components/common/ArchivedBadge';
 
 // A palette group of issue hits. The list comes from the server (already filtered
-// and ordered); the ISSUE_PREFIX value keeps cmdk from re-filtering it. A second
-// group starts its values at valueOffset, so its values stay unique and it sorts
-// below the first.
+// and ordered); the ISSUE_PREFIX value keeps cmdk from re-filtering it. A later
+// group starts its values at valueOffset, so the values stay unique and it sorts
+// below the groups before it.
 export default function CommandPaletteIssues<T extends IssueSearchHit>({
   heading,
   hits,
@@ -16,7 +17,7 @@ export default function CommandPaletteIssues<T extends IssueSearchHit>({
   valueOffset = 0,
   onOpenIssue,
 }: {
-  heading: string;
+  heading: ReactNode;
   hits: T[];
   fetching: boolean;
   valueOffset?: number;

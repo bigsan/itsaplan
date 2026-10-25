@@ -37,25 +37,32 @@ function hit(id: number, projectKey: string): CrossProjectIssueHit {
     projectRef: `eng.${projectKey}`,
     projectKey,
     projectName: projectKey,
+    teamName: 'Engineering',
   };
 }
 
 function Harness({
   q,
   current,
+  enabled,
 }: {
   q: string;
   current: { key: string | null; id: number | null };
+  enabled: boolean;
 }) {
-  result = useOtherProjectIssueSearch(q, current, { enabled: true });
+  result = useOtherProjectIssueSearch(q, current, { enabled });
   return null;
 }
 
-async function render(current: { key: string | null; id: number | null }, q = 'launch') {
+async function render(
+  current: { key: string | null; id: number | null },
+  q = 'launch',
+  enabled = true,
+) {
   await act(async () => {
     root.render(
       <QueryClientProvider client={client}>
-        <Harness q={q} current={current} />
+        <Harness q={q} current={current} enabled={enabled} />
       </QueryClientProvider>,
     );
   });
@@ -147,4 +154,22 @@ it('keeps the previous hits while a changed term is searched', async () => {
     result.hits.map((h) => h.identifier),
     ['OPS-3'],
   );
+});
+
+it('shows no cached hits while disabled, as when the search is narrowed to the project', async () => {
+  client.setQueryData(qk.issueSearchAll('launch', 1), [hit(3, 'OPS')]);
+
+  await render({ key: 'eng.MKT', id: 1 }, 'launch', false);
+  assert.equal(requests.length, 0);
+  assert.equal(result.hits.length, 0);
+});
+
+it('stops reporting a search in flight once disabled', async () => {
+  held = new Promise(() => {});
+  await render({ key: 'eng.MKT', id: 1 });
+  assert.equal(result.fetching, true);
+
+  await render({ key: 'eng.MKT', id: 1 }, 'launch', false);
+  assert.equal(result.fetching, false);
+  assert.equal(result.hits.length, 0);
 });

@@ -342,6 +342,7 @@ export const CrossProjectIssueHitResponse = t.Composite([
     projectRef: t.String(),
     projectKey: t.String(),
     projectName: t.String(),
+    teamName: t.String(),
   }),
 ]);
 
@@ -549,6 +550,9 @@ export const searchAllIssuesQuery = t.Object({
       'Case-insensitive substring, matched against the title, description, issue number ("KEY-42" or a bare number), and custom field text.',
   }),
   limit: t.Optional(t.Numeric({ description: 'Max results (1-50). Default 20.' })),
+  perProjectLimit: t.Optional(
+    t.Numeric({ description: 'Max results from one project (1-50). Default 5.' }),
+  ),
   excludeProjectId: t.Optional(t.Numeric({ description: "Leave out this project's issues." })),
 });
 

@@ -8,6 +8,9 @@ import type { Command, CommandPage, CommandSection } from '@/utils/commands';
 import { substringFilter } from '@/utils/commandFilter';
 import CommandPaletteDocuments from './CommandPaletteDocuments';
 import CommandPaletteIssues from '@/components/layout/CommandPaletteIssues';
+import CommandPaletteOtherIssues from './CommandPaletteOtherIssues';
+import CommandPaletteScope from './CommandPaletteScope';
+import { usePaletteSearchScope } from './hooks/usePaletteSearchScope';
 import CommandPaletteRow from '@/components/layout/CommandPaletteRow';
 import {
   CommandDialog,
@@ -24,8 +27,9 @@ import {
 // second level (status, priority, assignee, labels); Backspace on an empty input
 // goes back. While the user is typing, an "Issues" group lists issues of the current
 // project the server matches by identifier, title, description, number or custom
-// fields (archived issues included), and a last group lists the matches in every
-// other project the user can read.
+// fields (archived issues included), and the last groups list the matches in every
+// other project the user can read, one group per project. While a project is open, a
+// switch narrows the search to it.
 export default function CommandPalette({
   open,
   onOpenChange,
@@ -70,10 +74,12 @@ export default function CommandPalette({
   const debounced = useDebouncedValue(query, 250);
   const search = useIssueSearchQuery(currentProjectKey, debounced, { enabled: open && !page });
   const hits = search.data ?? [];
+  const { scope, setScope } = usePaletteSearchScope();
+  const allProjects = currentProjectKey === null || scope === 'all';
   const others = useOtherProjectIssueSearch(
     debounced,
     { key: currentProjectKey, id: currentProjectId },
-    { enabled: open && !page },
+    { enabled: open && !page && allProjects },
   );
   const hasProject = currentProjectId !== null;
   const searching = query.trim().length > 0;
@@ -103,6 +109,9 @@ export default function CommandPalette({
           }
         }}
       />
+      {!page && currentProjectKey !== null && (
+        <CommandPaletteScope scope={scope} onChange={setScope} />
+      )}
       <CommandList>
         <CommandEmpty>{t('noResults')}</CommandEmpty>
         {page ? (
@@ -143,11 +152,10 @@ export default function CommandPalette({
           />
         )}
         {!page && searching && (others.hits.length > 0 || others.fetching) && (
-          <CommandPaletteIssues
-            heading={hasProject ? t('otherProjectIssues') : t('issues')}
+          <CommandPaletteOtherIssues
             hits={others.hits}
             fetching={others.fetching}
-            valueOffset={1000}
+            loadingHeading={hasProject ? t('otherProjectIssues') : t('issues')}
             onOpenIssue={(hit) => {
               onOpenChange(false);
               router.push(issuePath(hit.projectRef, hit.sequenceNumber));

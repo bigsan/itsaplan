@@ -29,7 +29,10 @@ async function createIssue(api: Api, projectKey: string, title: string) {
   return res.data!;
 }
 
-function search(api: Api, query: { q: string; limit?: number; excludeProjectId?: number }) {
+function search(
+  api: Api,
+  query: { q: string; limit?: number; perProjectLimit?: number; excludeProjectId?: number },
+) {
   return api.issues.search.get({ query });
 }
 
@@ -48,6 +51,7 @@ describe('cross-project issue search', () => {
     await api.issues({ issueId: mkt.id }).archive.post();
 
     const res = await search(api, { q: 'zephyr' });
+    const [ownTeam] = (await api.teams.get()).data!;
     expect(res.status).toBe(200);
     expect(titles(res)).toEqual(['Zephyr launch', 'Zephyr rollout']);
     expect(res.data!.find((hit) => hit.id === mkt.id)).toMatchObject({
@@ -55,6 +59,7 @@ describe('cross-project issue search', () => {
       projectKey: 'MKT',
       projectName: 'Marketing',
       projectRef: expect.stringMatching(/\.MKT$/),
+      teamName: ownTeam!.name,
       archived: true,
     });
   });
@@ -140,6 +145,29 @@ describe('cross-project issue search', () => {
     ]);
   });
 
+  it('takes at most perProjectLimit hits from each project, five by default', async () => {
+    const { api } = await setup();
+    for (let i = 1; i <= 6; i++) await createIssue(api, 'MKT', `Report ${i}`);
+    for (let i = 1; i <= 2; i++) await createIssue(api, 'OPS', `Report ops ${i}`);
+    const keysOf = (res: Awaited<ReturnType<typeof search>>) =>
+      res.data!.map((hit) => hit.projectKey).sort();
+
+    expect(keysOf(await search(api, { q: 'report' }))).toEqual([
+      ...Array<string>(5).fill('MKT'),
+      'OPS',
+      'OPS',
+    ]);
+    expect(keysOf(await search(api, { q: 'report', perProjectLimit: 2 }))).toEqual([
+      'MKT',
+      'MKT',
+      'OPS',
+      'OPS',
+    ]);
+    const newest = await search(api, { q: 'report', perProjectLimit: 2 });
+    expect(newest.data!.find((hit) => hit.projectKey === 'MKT')!.title).toBe('Report 6');
+    expect((await search(api, { q: 'report', limit: 3 })).data).toHaveLength(3);
+  });
+
   it('rejects an empty query', async () => {
     const { user } = await setup();
     const res = await app.handle(
@@ -150,6 +178,7 @@ describe('cross-project issue search', () => {
 
   it('serves the search_issues_all_projects MCP tool over the MCP-enabled projects', async () => {
     const { user, api } = await setup();
+    await createIssue(api, 'MKT', 'Older plan');
     await createIssue(api, 'MKT', 'Visible plan');
     await createIssue(api, 'OPS', 'Hidden plan');
     const ops = (await api.projects({ projectKey: 'OPS' }).get()).data!.project;
@@ -170,7 +199,10 @@ describe('cross-project issue search', () => {
           jsonrpc: '2.0',
           id: 1,
           method: 'tools/call',
-          params: { name: 'search_issues_all_projects', arguments: { q: 'plan' } },
+          params: {
+            name: 'search_issues_all_projects',
+            arguments: { q: 'plan', perProjectLimit: 1 },
+          },
         }),
       }),
     );

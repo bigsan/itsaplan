@@ -102,6 +102,7 @@ export interface CrossProjectIssueHit extends IssueSearchHit {
   projectRef: string;
   projectKey: string;
   projectName: string;
+  teamName: string;
 }
 
 export interface IssueFieldValue {
@@ -388,10 +389,12 @@ export const searchIssues = (projectKey: string, params: { q?: string; limit?: n
 export const searchAllIssues = (params: {
   q: string;
   limit?: number;
+  perProjectLimit?: number;
   excludeProjectId?: number;
 }) => {
   const qs = new URLSearchParams({ q: params.q });
   if (params.limit != null) qs.set('limit', String(params.limit));
+  if (params.perProjectLimit != null) qs.set('perProjectLimit', String(params.perProjectLimit));
   if (params.excludeProjectId != null) qs.set('excludeProjectId', String(params.excludeProjectId));
   return request<CrossProjectIssueHit[]>(`/issues/search?${qs.toString()}`);
 };
