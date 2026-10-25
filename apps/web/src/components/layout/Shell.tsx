@@ -61,7 +61,7 @@ export default function Shell({
     errorMsg,
     forbidden,
   } = useShellProject(projectKey, route.activeViewId);
-  useAppBadge(projects.map((item) => item.id));
+  useAppBadge();
   const projectName = project?.project.name ?? t('project');
   // A failed read keeps the last data, so a project that became unreadable is named
   // generically.

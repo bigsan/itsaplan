@@ -80,7 +80,7 @@ order in which they take the scopes (board, then issue, then initiative, and two
 one kind in id order), which is what stops two writers from deadlocking on the
 counters.
 
-A new scope kind also needs its entry in `apps/api/src/sync/store.ts` — its name and
+A new scope kind also needs its entry in `apps/api/src/modules/sync/service.ts` — its name and
 the resource a watcher must be allowed to read — and the mirror in
 `apps/web/src/utils/revScopes.ts`.
 
