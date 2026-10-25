@@ -597,6 +597,7 @@ export const issueRoutes = new Elysia({ name: 'issues', detail: { tags: ['Issues
           'Search the issues of every project you can read by text, archived issues included, ' +
           'at most perProjectLimit hits from each project. Each hit names its project ' +
           '(projectKey, projectRef, projectName, teamName); use search_issues for one project.',
+        ...requiresPermission(['work_items', 'read']),
         ...mcpTool('search_issues_all_projects'),
       },
     },
