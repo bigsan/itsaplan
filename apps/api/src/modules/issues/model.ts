@@ -335,6 +335,16 @@ export const IssueSearchHitResponse = t.Object({
   completedAt: t.Nullable(t.String()),
 });
 
+export const CrossProjectIssueHitResponse = t.Composite([
+  IssueSearchHitResponse,
+  t.Object({
+    projectId: t.Number(),
+    projectRef: t.String(),
+    projectKey: t.String(),
+    projectName: t.String(),
+  }),
+]);
+
 // FeedItemRow from activity.ts: one timeline entry (comment or change-log).
 // kind is the FeedKind union (a string).
 export const FeedItemResponse = t.Object({
@@ -530,6 +540,16 @@ export const searchIssuesQuery = t.Object({
     }),
   ),
   limit: t.Optional(t.Numeric({ description: 'Max results (1-500). Default 50.' })),
+});
+
+export const searchAllIssuesQuery = t.Object({
+  q: t.String({
+    minLength: 1,
+    description:
+      'Case-insensitive substring, matched against the title, description, issue number ("KEY-42" or a bare number), and custom field text.',
+  }),
+  limit: t.Optional(t.Numeric({ description: 'Max results (1-50). Default 20.' })),
+  excludeProjectId: t.Optional(t.Numeric({ description: "Leave out this project's issues." })),
 });
 
 export const listIssuesQuery = t.Object({

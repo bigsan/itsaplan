@@ -28,6 +28,7 @@ import {
   listIssueCycles,
   getIssueBySeq,
   searchIssues,
+  searchAllIssues,
   updateIssue,
   deleteIssue,
   moveIssue,
@@ -167,6 +168,29 @@ export function useIssueSearchQuery(
     enabled: opts.enabled && projectKey != null && term.length > 0,
     placeholderData: keepPreviousData,
   });
+}
+
+// The palette's search in every project the user can read. It leaves out the
+// current project, whose own group lists its matches above. While that project is
+// still loading its id is unknown, so nothing is searched or shown: a search without
+// the id, or one cached from a page with no project, would list its issues here too.
+export function useOtherProjectIssueSearch(
+  q: string,
+  current: { key: string | null; id: number | null },
+  opts: { enabled: boolean },
+) {
+  const term = q.trim();
+  const ready = current.key === null || current.id !== null;
+  const search = useQuery({
+    queryKey: qk.issueSearchAll(term, current.id),
+    queryFn: () =>
+      searchAllIssues({ q: term, limit: 20, excludeProjectId: current.id ?? undefined }),
+    enabled: opts.enabled && ready && term.length > 0,
+    // Only the term changed: the previous hits leave out the same project.
+    placeholderData: (previous, previousQuery) =>
+      previousQuery?.queryKey[2] === current.id ? previous : undefined,
+  });
+  return { hits: ready ? (search.data ?? []) : [], fetching: search.isFetching };
 }
 
 // Updating an issue (drag/drop move, or an inline field edit). When `projectKey` is

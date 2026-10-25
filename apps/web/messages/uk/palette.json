@@ -2,6 +2,7 @@
   "placeholder": "Введіть команду або пошуковий запит…",
   "noResults": "Нічого не знайдено.",
   "issues": "Задачі",
+  "otherProjectIssues": "Задачі в інших проєктах",
   "searching": "Пошук…",
   "selectAllIssues": "Вибрати всі задачі",
   "newIssue": "Нова задача",

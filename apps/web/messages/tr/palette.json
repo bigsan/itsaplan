@@ -2,6 +2,7 @@
   "placeholder": "Bir komut yazın veya arama yapın…",
   "noResults": "Sonuç bulunamadı.",
   "issues": "İşler",
+  "otherProjectIssues": "Diğer projelerdeki işler",
   "searching": "Aranıyor…",
   "selectAllIssues": "Tüm işleri seç",
   "newIssue": "Yeni iş",

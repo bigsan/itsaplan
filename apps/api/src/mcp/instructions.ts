@@ -31,7 +31,8 @@ A checklistId and a checklist item's id come from get_issue: an issue carries it
 checklists and their items.
 
 search_issues and list_issues are for finding issues by text or by field, not for
-resolving an identifier.
+resolving an identifier. search_issues_all_projects searches by text in every
+project you can read, for when you do not know the project.
 
 ## You
 

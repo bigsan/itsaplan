@@ -2,6 +2,7 @@
   "placeholder": "یک دستور بنویسید یا جستجو کنید…",
   "noResults": "نتیجه‌ای یافت نشد.",
   "issues": "تسک‌ها",
+  "otherProjectIssues": "تسک‌ها در پروژه‌های دیگر",
   "searching": "در حال جستجو…",
   "selectAllIssues": "انتخاب همه تسک‌ها",
   "newIssue": "تسک جدید",

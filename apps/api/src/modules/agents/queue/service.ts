@@ -1,20 +1,6 @@
-import {
-  db,
-  agentRun,
-  agentSchedule,
-  aiAgent,
-  project,
-  projectMember,
-  team,
-  teamRole,
-  issue,
-  revision,
-} from '@repo/db';
+import { db, agentRun, agentSchedule, aiAgent, project, team, issue, revision } from '@repo/db';
 import { and, desc, eq, inArray, isNotNull, isNull, or, sql } from 'drizzle-orm';
-import { workspaceGrants } from '#modules/workspaces/service';
-import { toMemberContext, type MemberRole } from '#modules/members/service';
-import { projectAccess } from '#shared/workspace-roles';
-import { hasPermission } from '#shared/permissions';
+import { readableProjectIds } from '#shared/access';
 import { iso } from '#shared/lib';
 import { executionState, contextTokensOf } from '../core/run-queue';
 
@@ -26,44 +12,15 @@ const runnerPresence = sql<'push' | 'online' | 'offline' | 'never'>`CASE
   WHEN ${aiAgent.lastSeenAt} > now() - interval '90 seconds' THEN 'online'
   ELSE 'offline' END`;
 
-async function queueProjectIds(userId: string, mcpOnly = false) {
-  const grants = await workspaceGrants(userId);
-  const grantedTeams = [...grants.keys()];
-  const rows = await db
-    .select({
-      id: project.id,
-      teamId: project.teamId,
-      role: projectMember.role,
-      permissions: teamRole.permissions,
-    })
-    .from(project)
-    .innerJoin(team, eq(team.id, project.teamId))
-    .leftJoin(
-      projectMember,
-      and(eq(projectMember.projectId, project.id), eq(projectMember.userId, userId)),
-    )
-    .leftJoin(teamRole, eq(teamRole.id, projectMember.roleId))
-    .where(
-      and(
-        mcpOnly ? and(eq(project.mcpEnabled, true), eq(team.mcpEnabled, true)) : undefined,
-        or(
-          isNotNull(projectMember.userId),
-          grantedTeams.length ? inArray(project.teamId, grantedTeams) : undefined,
-        ),
-      ),
-    );
-  return rows
-    .filter((row) => {
-      const member = row.role ? toMemberContext(row.role as MemberRole, row.permissions) : null;
-      const access = projectAccess(member, grants.get(row.teamId) ?? null);
-      return (
-        access &&
-        hasPermission(access.permissions, 'work_items', 'read') &&
-        hasPermission(access.permissions, 'ai_agents', 'read')
-      );
-    })
-    .map((row) => row.id)
-    .sort((a, b) => a - b);
+function queueProjectIds(userId: string, mcpOnly = false) {
+  return readableProjectIds(
+    userId,
+    [
+      ['work_items', 'read'],
+      ['ai_agents', 'read'],
+    ],
+    { mcpOnly, includeArchived: true },
+  );
 }
 
 export async function listRunnerQueue(

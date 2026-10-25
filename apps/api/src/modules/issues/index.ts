@@ -9,8 +9,10 @@ import {
   assertProjectOwner,
   assertProjectWritable,
   assertWritable,
+  readableProjectIds,
   requireUser,
 } from '#shared/access';
+import { isMcpRequest } from '#shared/mcp-request';
 import { getProjectById } from '#modules/projects/service';
 import { HttpError, instantParam } from '#shared/lib';
 import { accessErrors, commonErrors, errors } from '#shared/responses';
@@ -18,6 +20,7 @@ import { deleteObject } from '@repo/storage';
 import {
   createIssue,
   searchIssues,
+  searchIssuesInProjects,
   listIssues,
   listArchivedIssues,
   getIssue,
@@ -123,6 +126,7 @@ import {
   updateWorklogBody,
   IssueWithFieldsResponse,
   IssueSearchHitResponse,
+  CrossProjectIssueHitResponse,
   FeedItemResponse,
   FeedPageResponse,
   GroupedFeedPageResponse,
@@ -137,6 +141,7 @@ import {
   bulkArchiveIssuesBody,
   bulkDeleteIssuesBody,
   searchIssuesQuery,
+  searchAllIssuesQuery,
   listIssuesQuery,
   issueSequenceParams,
   updateIssueBody,
@@ -563,6 +568,35 @@ export const issueRoutes = new Elysia({ name: 'issues', detail: { tags: ['Issues
         description:
           'Get an issue by its project-scoped number: the 42 in "MKT-42". Use this when you were given an identifier; get_issue takes the internal numeric id instead.',
         ...mcpTool('get_issue_by_number'),
+      },
+    },
+  )
+
+  // Text search across every project the caller may read work items in, matched like
+  // search_issues. This route comes before /issues/:issueId so the static "search"
+  // segment wins over the numeric param.
+  .get(
+    '/issues/search',
+    async ({ user, query, request }) => {
+      const ids = await readableProjectIds(requireUser(user).id, [['work_items', 'read']], {
+        mcpOnly: isMcpRequest(request.headers),
+      });
+      const limit = Math.min(Math.max(query.limit ?? 20, 1), 50);
+      return searchIssuesInProjects(
+        ids.filter((id) => id !== query.excludeProjectId),
+        query.q,
+        limit,
+      );
+    },
+    {
+      query: searchAllIssuesQuery,
+      response: { 200: t.Array(CrossProjectIssueHitResponse), ...errors(400, 401) },
+      detail: {
+        summary: 'Search issues in all projects',
+        description:
+          'Search the issues of every project you can read by text, archived issues included. ' +
+          'Each hit names its project (projectKey, projectRef); use search_issues for one project.',
+        ...mcpTool('search_issues_all_projects'),
       },
     },
   )
