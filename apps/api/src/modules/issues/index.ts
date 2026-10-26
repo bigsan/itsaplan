@@ -12,7 +12,7 @@ import {
   readableProjectIds,
   requireUser,
 } from '#shared/access';
-import { isMcpRequest } from '#shared/mcp-request';
+import { boundProjectId, isMcpRequest } from '#shared/mcp-request';
 import { getProjectById } from '#modules/projects/service';
 import { HttpError, instantParam } from '#shared/lib';
 import { accessErrors, commonErrors, errors } from '#shared/responses';
@@ -581,9 +581,10 @@ export const issueRoutes = new Elysia({ name: 'issues', detail: { tags: ['Issues
       const ids = await readableProjectIds(requireUser(user).id, [['work_items', 'read']], {
         mcpOnly: isMcpRequest(request.headers),
       });
+      const bound = boundProjectId(request.headers);
       const clamp = (value: number) => Math.min(Math.max(value, 1), 50);
       return searchIssuesInProjects(
-        ids.filter((id) => id !== query.excludeProjectId),
+        ids.filter((id) => (bound == null || id === bound) && id !== query.excludeProjectId),
         query.q,
         { limit: clamp(query.limit ?? 20), perProjectLimit: clamp(query.perProjectLimit ?? 5) },
       );
@@ -596,7 +597,8 @@ export const issueRoutes = new Elysia({ name: 'issues', detail: { tags: ['Issues
         description:
           'Search the issues of every project you can read by text, archived issues included, ' +
           'at most perProjectLimit hits from each project. Each hit names its project ' +
-          '(projectKey, projectRef, projectName, teamName); use search_issues for one project.',
+          '(projectKey, projectRef, projectName, teamName); use search_issues for one project. ' +
+          'An agent run searches only the project it works in.',
         ...requiresPermission(['work_items', 'read']),
         ...mcpTool('search_issues_all_projects'),
       },

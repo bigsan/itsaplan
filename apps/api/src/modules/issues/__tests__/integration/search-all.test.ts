@@ -168,6 +168,22 @@ describe('cross-project issue search', () => {
     expect((await search(api, { q: 'report', limit: 3 })).data).toHaveLength(3);
   });
 
+  it('searches only the project an agent run is bound to', async () => {
+    const { user, api } = await setup();
+    await createIssue(api, 'MKT', 'Zephyr launch');
+    await createIssue(api, 'OPS', 'Zephyr rollout');
+    const mkt = (await api.projects({ projectKey: 'MKT' }).get()).data!.project.id;
+    const other = authedApi((await signUpTestUser()).cookie);
+    await createProject(other, { key: 'HR', name: 'People' });
+    const hr = (await other.projects({ projectKey: 'HR' }).get()).data!.project.id;
+    const bound = (projectId: number) =>
+      authedApi(user.cookie, { 'x-agent-project': String(projectId) });
+
+    expect(titles(await search(bound(mkt), { q: 'zephyr' }))).toEqual(['Zephyr launch']);
+    expect((await search(bound(hr), { q: 'zephyr' })).data).toEqual([]);
+    expect(titles(await search(api, { q: 'zephyr' }))).toEqual(['Zephyr launch', 'Zephyr rollout']);
+  });
+
   it('rejects an empty query', async () => {
     const { user } = await setup();
     const res = await app.handle(
